@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wichteln</title>
+<style>
+  :root { --bg:#0a1a16; --glass:rgba(255,255,255,.07); --line:rgba(255,255,255,.14); --text:#f4f1ea;
+          --red:#ef4455; --gold:#ffcf5c; --green:#3ddc97; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; }
+  body { background:var(--bg); color:var(--text); overflow-x:hidden;
+         font-family:Inter,"Segoe UI",system-ui,-apple-system,sans-serif; }
+
+  /* animierter Hintergrund */
+  .blob { position:fixed; width:55vmax; height:55vmax; border-radius:50%; filter:blur(90px); opacity:.45; z-index:0;
+          animation:drift 22s ease-in-out infinite alternate; }
+  .b1 { background:#1c7a4f; top:-20vmax; left:-15vmax; }
+  .b2 { background:#a3202f; bottom:-25vmax; right:-15vmax; animation-delay:-7s; }
+  .b3 { background:#b8892b; top:30%; left:40%; width:30vmax; height:30vmax; opacity:.22; animation-delay:-12s; }
+  @keyframes drift { to { transform:translate(8vmax,6vmax) scale(1.15); } }
+  canvas { position:fixed; inset:0; width:100%; height:100%; pointer-events:none; }
+  #snow { z-index:1; } #fx { z-index:50; }
+
+  main { position:relative; z-index:2; min-height:100%; display:flex; flex-direction:column; align-items:center;
+         justify-content:center; padding:32px 18px; text-align:center; }
+  h1 { font-size:clamp(2rem,7vw,3.4rem); margin:0 0 10px; letter-spacing:-.02em;
+       background:linear-gradient(90deg,#fff,var(--gold)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .sub { opacity:.7; margin:0 0 34px; font-size:1.05rem; }
+
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; width:min(640px,100%); }
+  .card { position:relative; font:inherit; color:inherit; cursor:pointer; padding:22px 14px 18px;
+          background:var(--glass); border:1px solid var(--line); border-radius:22px;
+          backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+          display:flex; flex-direction:column; align-items:center; gap:12px;
+          transition:transform .25s cubic-bezier(.2,1.4,.4,1), background .25s, border-color .25s;
+          animation:rise .6s both; animation-delay:calc(var(--i) * 80ms); }
+  .card:hover { transform:translateY(-6px) scale(1.03); background:rgba(255,255,255,.13); border-color:rgba(255,255,255,.35); }
+  .card:active { transform:scale(.97); }
+  .avatar { width:62px; height:62px; border-radius:50%; display:grid; place-items:center; font-size:1.6rem; font-weight:700;
+            background:linear-gradient(135deg,hsl(var(--h) 80% 60%),hsl(calc(var(--h) + 40) 75% 45%));
+            box-shadow:0 8px 24px hsl(var(--h) 80% 40% / .45); }
+  .name { font-size:1.15rem; font-weight:600; }
+  .card.done { opacity:.5; }
+  .card.done .avatar { filter:grayscale(.8); }
+  .card.done::after { content:"✓ bereits gelost"; font-size:.78rem; color:var(--green); }
+  @keyframes rise { from { opacity:0; transform:translateY(24px); } }
+
+  /* Reveal */
+  #stage { position:fixed; inset:0; z-index:10; display:none; flex-direction:column; align-items:center; justify-content:center;
+           background:rgba(6,14,12,.82); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); padding:20px; }
+  #stage.on { display:flex; animation:fade .4s both; }
+  @keyframes fade { from { opacity:0; } }
+  #hallo { font-size:clamp(1.4rem,5vw,2rem); font-weight:700; margin:0 0 6px; }
+  #hint { opacity:.7; margin:0 0 40px; min-height:1.4em; }
+
+  .rays { position:absolute; width:120vmax; height:120vmax; opacity:0; pointer-events:none;
+          background:repeating-conic-gradient(from 0deg, rgba(255,207,92,.28) 0 7deg, transparent 7deg 20deg);
+          -webkit-mask:radial-gradient(circle,#000 0,transparent 55%); mask:radial-gradient(circle,#000 0,transparent 55%);
+          animation:spin 14s linear infinite; transition:opacity .6s; }
+  #stage.open .rays { opacity:1; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  .gift { position:relative; width:170px; height:170px; cursor:pointer; z-index:2;
+          animation:bob 2s ease-in-out infinite; filter:drop-shadow(0 24px 30px rgba(0,0,0,.5)); transition:transform .3s; }
+  .gift:hover { transform:scale(1.07); }
+  @keyframes bob { 50% { transform:translateY(-12px) rotate(2deg); } }
+  .gift.shake { animation:shake .12s linear infinite; }
+  @keyframes shake { 0%{transform:translate(-4px,0) rotate(-4deg)} 50%{transform:translate(4px,-3px) rotate(4deg)} 100%{transform:translate(-4px,0) rotate(-4deg)} }
+  .g-body { position:absolute; bottom:0; left:12px; width:146px; height:108px; border-radius:6px 6px 14px 14px;
+            background:linear-gradient(160deg,#f0495a,#a81b2b); }
+  .g-lid  { position:absolute; bottom:98px; left:2px; width:166px; height:44px; border-radius:10px;
+            background:linear-gradient(160deg,#ff5d6e,#c4283a); transition:transform .7s cubic-bezier(.2,1.2,.3,1), opacity .7s; }
+  .g-body::before,.g-lid::before { content:""; position:absolute; top:0; bottom:0; left:50%; width:26px; transform:translateX(-50%);
+            background:linear-gradient(90deg,#e8b53c,#ffe08a,#e8b53c); }
+  .g-lid::after { content:"🎀"; position:absolute; top:-30px; left:50%; transform:translateX(-50%); font-size:46px; }
+  .gift.open { animation:none; }
+  .gift.open .g-lid { transform:translateY(-190px) rotate(-28deg); opacity:0; }
+  .gift.open .g-body { animation:thump .5s; }
+  @keyframes thump { 40% { transform:scale(1.1,.9); } }
+
+  .result { position:absolute; z-index:3; opacity:0; pointer-events:none; text-align:center; padding:26px 38px; border-radius:28px;
+            background:linear-gradient(160deg,rgba(255,255,255,.18),rgba(255,255,255,.06)); border:1px solid rgba(255,255,255,.3);
+            box-shadow:0 30px 80px rgba(0,0,0,.5), 0 0 80px rgba(255,207,92,.25); transform:scale(.4) translateY(60px); }
+  #stage.open .result { opacity:1; pointer-events:auto; transform:none; transition:all .8s cubic-bezier(.2,1.5,.4,1) .35s; }
+  #stage.open .gift { transform:translateY(160px) scale(.6); opacity:0; transition:all .8s .2s; pointer-events:none; }
+  .result small { letter-spacing:.2em; text-transform:uppercase; opacity:.7; font-size:.75rem; }
+  #target { font-size:clamp(2.4rem,11vw,4.6rem); font-weight:800; margin:8px 0 4px; letter-spacing:-.02em; min-width:260px;
+            background:linear-gradient(90deg,var(--gold),#fff,var(--gold)); background-size:200%; -webkit-background-clip:text; background-clip:text;
+            color:transparent; animation:shine 3s linear infinite; }
+  @keyframes shine { to { background-position:200%; } }
+  .result p { margin:6px 0 18px; opacity:.75; }
+
+  .btn { font:inherit; font-weight:600; cursor:pointer; border:0; border-radius:999px; padding:12px 28px; color:#fff;
+         background:linear-gradient(135deg,var(--red),#c4283a); box-shadow:0 10px 26px rgba(239,68,85,.4); transition:transform .2s; }
+  .btn:hover { transform:translateY(-2px); }
+  .btn.ghost { background:var(--glass); box-shadow:none; border:1px solid var(--line); }
+
+  dialog { border:1px solid var(--line); border-radius:24px; padding:28px; color:var(--text); text-align:center;
+           background:rgba(18,32,28,.92); backdrop-filter:blur(16px); max-width:340px; }
+  dialog::backdrop { background:rgba(0,0,0,.55); backdrop-filter:blur(4px); }
+  dialog h2 { margin:0 0 8px; } dialog p { opacity:.75; margin:0 0 22px; }
+  dialog .row { display:flex; gap:10px; justify-content:center; }
+
+  #toast { position:fixed; z-index:60; left:50%; bottom:30px; transform:translate(-50%,40px); opacity:0; pointer-events:none;
+           background:rgba(255,255,255,.95); color:#14301f; font-weight:600; padding:12px 22px; border-radius:999px;
+           box-shadow:0 10px 30px rgba(0,0,0,.4); transition:all .35s cubic-bezier(.2,1.4,.4,1); text-align:center; }
+  #toast.on { opacity:1; transform:translate(-50%,0); }
+
+  @media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01s !important; transition-duration:.01s !important; } }
+</style>
+</head>
+<body>
+<div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+<canvas id="snow"></canvas><canvas id="fx"></canvas>
+
+<main>
+  <h1 id="titel"></h1>
+  <p class="sub" id="sub">Wer bist du? Tippe auf deinen Namen.</p>
+  <div class="grid" id="grid"></div>
+</main>
+
+<div id="stage">
+  <div class="rays"></div>
+  <h2 id="hallo"></h2>
+  <p id="hint">Tippe auf das Geschenk, um es zu öffnen</p>
+  <div class="gift" id="gift"><div class="g-body"></div><div class="g-lid"></div></div>
+  <div class="result">
+    <small>Dein Wichtelziel</small>
+    <div id="target"></div>
+    <p>Pssst – nicht weitererzählen! 🤫</p>
+    <button class="btn" id="close">Fertig</button>
+  </div>
+</div>
+
+<dialog id="dlg">
+  <h2 id="dlgTitle"></h2>
+  <p>Du kannst nur einmal losen. Danach ist dein Ziel nicht mehr abrufbar – merk es dir gut!</p>
+  <div class="row"><button class="btn ghost" id="no">Abbrechen</button><button class="btn" id="yes">Ja, das bin ich</button></div>
+</dialog>
+<div id="toast"></div>
+
+<script src="config.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const names = WICHTEL.names, n = names.length;
+document.title = WICHTEL.titel;
+$("titel").textContent = WICHTEL.titel;
+
+// ---- Auslosung prüfen: Permutation, niemand zieht sich selbst ----
+let targets = null;
+try { targets = JSON.parse(atob(WICHTEL.draw)); } catch (e) {}
+const valid = Array.isArray(targets) && targets.length === n && new Set(targets).size === n
+           && targets.every((v, i) => Number.isInteger(v) && v >= 0 && v < n && v !== i);
+
+// ---- "Schon gelost" pro Gerät merken (neue Auslosung = neuer Schlüssel) ----
+const KEY = "wichtel:" + WICHTEL.draw;
+if (new URLSearchParams(location.search).has("reset")) {   // Test-Hilfe: index.html?reset
+  try { localStorage.removeItem(KEY); } catch (e) {}
+  history.replaceState(null, "", location.pathname);
+}
+const loadDone = () => { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { return []; } };
+const saveDone = a => { try { localStorage.setItem(KEY, JSON.stringify(a)); } catch (e) {} };
+
+// ---- Namensliste ----
+function renderGrid() {
+  const done = loadDone();
+  $("grid").innerHTML = "";
+  names.forEach((name, i) => {
+    const b = document.createElement("button");
+    b.className = "card" + (done.includes(i) ? " done" : "");
+    b.style.setProperty("--i", i);
+    b.style.setProperty("--h", Math.round(i * 360 / n + 340) % 360);
+    b.innerHTML = `<span class="avatar"></span><span class="name"></span>`;
+    b.querySelector(".avatar").textContent = name[0].toUpperCase();
+    b.querySelector(".name").textContent = name;
+    b.onclick = () => done.includes(i) ? toast(`${name} hat bereits gelost 🎁`) : ask(i);
+    $("grid").appendChild(b);
+  });
+}
+if (!valid) {
+  $("sub").textContent = WICHTEL.draw ? "Die Auslosung ist ungültig. Bitte neu auslosen." : "Es wurde noch nicht ausgelost. 🎄";
+} else renderGrid();
+
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.classList.add("on");
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("on"), 2600);
+}
+
+// ---- Bestätigung ----
+let current = -1;
+function ask(i) {
+  current = i;
+  $("dlgTitle").textContent = `Bist du ${names[i]}?`;
+  $("dlg").showModal();
+}
+$("no").onclick = () => $("dlg").close();
+$("yes").onclick = () => { $("dlg").close(); openStage(current); };
+
+// ---- Reveal ----
+function openStage(i) {
+  const stage = $("stage"), gift = $("gift");
+  stage.className = "on";
+  gift.className = "gift";
+  $("hallo").textContent = `Hallo ${names[i]}! 👋`;
+  $("hint").textContent = "Tippe auf das Geschenk, um es zu öffnen";
+  $("target").textContent = "";
+  gift.onclick = () => {
+    gift.onclick = null;
+    $("hint").textContent = "";
+    gift.classList.add("shake");
+    setTimeout(() => {
+      gift.className = "gift open";
+      stage.classList.add("open");
+      burst();
+      scramble($("target"), names[targets[i]], 1600);
+      const done = loadDone(); if (!done.includes(i)) saveDone([...done, i]);   // erst jetzt als gelost markieren
+      setTimeout(burst, 700);
+    }, 1100);
+  };
+}
+$("close").onclick = () => { $("stage").className = ""; renderGrid(); };
+
+function scramble(el, text, ms) {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+  const start = performance.now();
+  (function f(t) {
+    const p = Math.min(1, (t - start) / ms), fixed = Math.floor(p * text.length);
+    el.textContent = p >= 1 ? text : text.slice(0, fixed) +
+      [...text.slice(fixed)].map(() => chars[Math.random() * chars.length | 0]).join("");
+    if (p < 1) requestAnimationFrame(f);
+  })(start);
+}
+
+// ---- Konfetti ----
+const fx = $("fx"), fctx = fx.getContext("2d");
+let parts = [], fxRunning = false;
+function sizeFx() { fx.width = innerWidth; fx.height = innerHeight; }
+function burst() {
+  sizeFx();
+  const cols = ["#ef4455", "#ffcf5c", "#3ddc97", "#ffffff", "#5ab0ff", "#c77dff"];
+  for (let k = 0; k < 150; k++) {
+    const a = Math.random() * Math.PI * 2, s = 6 + Math.random() * 12;
+    parts.push({ x: innerWidth / 2, y: innerHeight * .45, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 6,
+      w: 6 + Math.random() * 7, h: 4 + Math.random() * 6, r: Math.random() * 6, vr: Math.random() * .4 - .2,
+      c: cols[Math.random() * cols.length | 0], round: Math.random() < .3 });
+  }
+  if (!fxRunning) { fxRunning = true; requestAnimationFrame(fxLoop); }
+}
+function fxLoop() {
+  fctx.clearRect(0, 0, fx.width, fx.height);
+  parts.forEach(p => {
+    p.vx *= .985; p.vy = p.vy * .985 + .28; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+    fctx.save(); fctx.translate(p.x, p.y); fctx.rotate(p.r); fctx.fillStyle = p.c;
+    if (p.round) { fctx.beginPath(); fctx.arc(0, 0, p.w / 2, 0, 7); fctx.fill(); } else fctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+    fctx.restore();
+  });
+  parts = parts.filter(p => p.y < fx.height + 30);
+  if (parts.length) requestAnimationFrame(fxLoop); else { fxRunning = false; fctx.clearRect(0, 0, fx.width, fx.height); }
+}
+
+// ---- Schnee im Hintergrund ----
+const sn = $("snow"), sctx = sn.getContext("2d");
+let flakes = [];
+function sizeSnow() { sn.width = innerWidth; sn.height = innerHeight;
+  flakes = Array.from({ length: Math.min(90, innerWidth / 12 | 0) }, () => ({ x: Math.random() * sn.width, y: Math.random() * sn.height,
+    r: .8 + Math.random() * 2.2, v: .3 + Math.random() * .9, d: Math.random() * 6 })); }
+addEventListener("resize", sizeSnow); sizeSnow();
+(function snow() {
+  sctx.clearRect(0, 0, sn.width, sn.height); sctx.fillStyle = "rgba(255,255,255,.7)";
+  flakes.forEach(f => { f.y += f.v; f.d += .01; f.x += Math.sin(f.d) * .4; if (f.y > sn.height) { f.y = -5; f.x = Math.random() * sn.width; }
+    sctx.beginPath(); sctx.arc(f.x, f.y, f.r, 0, 7); sctx.fill(); });
+  requestAnimationFrame(snow);
+})();
+</script>
+</body>
+</html>
